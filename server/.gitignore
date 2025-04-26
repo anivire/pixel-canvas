@@ -6,7 +6,7 @@ out
 dist
 *.tgz
 
-/public
+public
 
 # code coverage
 coverage
