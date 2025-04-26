@@ -1,0 +1,40 @@
+{
+  "name": "pixel-canvas",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "dev:turbo": "next dev --turbopack",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "@pixi/react": "^8.0.1",
+    "next": "15.3.1",
+    "pixi.js": "8.2.6",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "sharp": "^0.34.1",
+    "tailwind-merge": "^3.2.0",
+    "unocss": "^66.1.0-beta.12"
+  },
+  "devDependencies": {
+    "@eslint/eslintrc": "^3",
+    "@iconify/json": "^2.2.332",
+    "@svgr/core": "^8.1.0",
+    "@svgr/plugin-jsx": "^8.1.0",
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "@unocss/preset-icons": "^66.1.0-beta.12",
+    "@unocss/webpack": "^66.1.0-beta.12",
+    "eslint": "^9",
+    "eslint-config-next": "15.3.1",
+    "prettier": "^3.5.3",
+    "prettier-plugin-tailwindcss": "^0.6.11",
+    "tailwindcss": "^4",
+    "typescript": "^5"
+  }
+}

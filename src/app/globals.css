@@ -1,0 +1,23 @@
+@import 'tailwindcss';
+
+@theme {
+  --color-white-01: #ffffff;
+
+  --color-black-01: #090909;
+  --color-black-02: #101010;
+  --color-black-03: #161616;
+  --color-black-04: #242424;
+  --color-black-05: #343434;
+
+  --color-gray-01: #9f9fa8;
+
+  --color-red-01: #fa4545;
+  --color-yellow-01: #fad245;
+  --color-green-01: #a3e635;
+}
+
+body {
+  background: var(--color-black-01);
+  color: var(--color-white-01);
+  font-family: var(--font-mona-sans);
+}
