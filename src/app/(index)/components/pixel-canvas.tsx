@@ -44,6 +44,7 @@ function PixelCanvas({ className, grid, ...props }: PixelCanvasProps) {
   const imagesRef = useRef<CanvasImage[]>([]);
   const scaleRef = useRef(scale);
   const rafRef = useRef<number | null>(null);
+  const lastTouchDistanceRef = useRef<number | null>(null);
 
   const sprites = useSprites();
 
@@ -303,6 +304,72 @@ function PixelCanvas({ className, grid, ...props }: PixelCanvasProps) {
       if (canvasRef.current) canvasRef.current.style.cursor = 'auto';
     };
 
+    const handleTouchStart = (e: TouchEvent) => {
+      e.preventDefault();
+      if (e.touches.length === 1) {
+        isDraggingRef.current = true;
+        const touch = e.touches[0];
+        lastMousePosRef.current = { x: touch.clientX, y: touch.clientY };
+      } else if (e.touches.length === 2) {
+        const touch1 = e.touches[0];
+        const touch2 = e.touches[1];
+        lastTouchDistanceRef.current = Math.hypot(
+          touch1.clientX - touch2.clientX,
+          touch1.clientY - touch2.clientY
+        );
+      }
+    };
+
+    const handleTouchMove = (e: TouchEvent) => {
+      e.preventDefault();
+      if (e.touches.length === 1 && isDraggingRef.current) {
+        const touch = e.touches[0];
+        const dx = touch.clientX - lastMousePosRef.current.x;
+        const dy = touch.clientY - lastMousePosRef.current.y;
+        cameraRef.current.x -= dx / scaleRef.current;
+        cameraRef.current.y -= dy / scaleRef.current;
+        lastMousePosRef.current = { x: touch.clientX, y: touch.clientY };
+        drawCanvas();
+      } else if (e.touches.length === 2) {
+        const touch1 = e.touches[0];
+        const touch2 = e.touches[1];
+        const currentDistance = Math.hypot(
+          touch1.clientX - touch2.clientX,
+          touch1.clientY - touch2.clientY
+        );
+
+        if (lastTouchDistanceRef.current !== null) {
+          const oldScale = scaleRef.current;
+          const scaleChange = currentDistance / lastTouchDistanceRef.current;
+          const newScale = Math.min(
+            Math.max(1, oldScale * scaleChange),
+            MAX_SCALE
+          );
+
+          const rect = canvas.getBoundingClientRect();
+          const midX = (touch1.clientX + touch2.clientX) / 2 - rect.left;
+          const midY = (touch1.clientY + touch2.clientY) / 2 - rect.top;
+
+          const camera = cameraRef.current;
+          const worldX = camera.x + midX / oldScale;
+          const worldY = camera.y + midY / oldScale;
+
+          cameraRef.current.x = worldX - midX / newScale;
+          cameraRef.current.y = worldY - midY / newScale;
+
+          scaleRef.current = newScale;
+          setScale(newScale);
+          lastTouchDistanceRef.current = currentDistance;
+          drawCanvas();
+        }
+      }
+    };
+
+    const handleTouchEnd = () => {
+      isDraggingRef.current = false;
+      lastTouchDistanceRef.current = null;
+    };
+
     let scaleTimeout: NodeJS.Timeout | null = null;
     const handleWheel = (e: WheelEvent) => {
       e.preventDefault();
@@ -346,6 +413,9 @@ function PixelCanvas({ className, grid, ...props }: PixelCanvasProps) {
     window.addEventListener('mousemove', handleMouseMove);
     window.addEventListener('mouseup', handleMouseUp);
     canvas.addEventListener('wheel', handleWheel);
+    canvas.addEventListener('touchstart', handleTouchStart, { passive: false });
+    canvas.addEventListener('touchmove', handleTouchMove, { passive: false });
+    canvas.addEventListener('touchend', handleTouchEnd);
 
     return () => {
       window.removeEventListener('resize', resizeCanvas);
@@ -353,19 +423,21 @@ function PixelCanvas({ className, grid, ...props }: PixelCanvasProps) {
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('mouseup', handleMouseUp);
       canvas.removeEventListener('wheel', handleWheel);
+      canvas.removeEventListener('touchstart', handleTouchStart);
+      canvas.removeEventListener('touchmove', handleTouchMove);
+      canvas.removeEventListener('touchend', handleTouchEnd);
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
       if (scaleTimeout) clearTimeout(scaleTimeout);
     };
   }, [grid, sprites]);
 
-  useEffect(() => {
-    console.log(lastMousePosRef);
-  }, [lastMousePosRef]);
-
   return (
     <canvas
       ref={canvasRef}
-      className={twJoin('h-full w-full cursor-auto', className)}
+      className={twJoin(
+        'h-full w-full cursor-auto touch-pinch-zoom',
+        className
+      )}
       {...props}
     />
   );
