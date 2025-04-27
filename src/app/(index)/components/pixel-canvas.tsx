@@ -36,6 +36,7 @@ const FADE_DURATION = 1000;
 
 function PixelCanvas({ className, grid, ...props }: PixelCanvasProps) {
   const [scale, setScale] = useState(1);
+  const [error, setError] = useState<string | null>(null);
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const cameraRef = useRef({ x: 0, y: 0 });
@@ -45,6 +46,9 @@ function PixelCanvas({ className, grid, ...props }: PixelCanvasProps) {
   const scaleRef = useRef(scale);
   const rafRef = useRef<number | null>(null);
   const lastTouchDistanceRef = useRef<number | null>(null);
+  const occupiedSpacesRef = useRef<
+    { x: number; y: number; width: number; height: number }[]
+  >([]);
 
   const sprites = useSprites();
 
@@ -56,12 +60,7 @@ function PixelCanvas({ className, grid, ...props }: PixelCanvasProps) {
     if (!ctx) return;
 
     imagesRef.current = [];
-    const occupiedSpaces: {
-      x: number;
-      y: number;
-      width: number;
-      height: number;
-    }[] = [];
+    occupiedSpacesRef.current = [];
 
     const canPlaceImage = (
       x: number,
@@ -77,7 +76,7 @@ function PixelCanvas({ className, grid, ...props }: PixelCanvasProps) {
       ) {
         return false;
       }
-      return !occupiedSpaces.some(
+      return !occupiedSpacesRef.current.some(
         space =>
           x < space.x + space.width + GAP &&
           x + width + GAP > space.x &&
@@ -128,94 +127,89 @@ function PixelCanvas({ className, grid, ...props }: PixelCanvasProps) {
 
     const sortedSprites = [...sprites].sort();
 
-    Promise.all(
-      sortedSprites.map(
-        (src, index) =>
-          new Promise<{ img: HTMLImageElement; index: number }>(
-            (resolve, reject) => {
-              const img = new Image();
-              img.src = src.startsWith('http')
-                ? src
-                : `${process.env.API_URL}${src}`;
-              img.onload = () => resolve({ img, index });
-              img.onerror = () => {
-                console.error(`Failed to load image ${index + 1}: ${src}`);
-                reject(new Error(`Failed to load image ${src}`));
-              };
-            }
-          )
-      )
-    )
-      .then(loadedImages => {
-        const spritePositions: Array<{
+    const loadImage = (src: string, index: number) => {
+      const img = new Image();
+      const imageSrc = src.startsWith('http')
+        ? `${src}?v=${Date.now()}`
+        : `${process.env.API_URL || ''}${src}?v=${Date.now()}`;
+      console.log(`Loading image ${index + 1}: ${imageSrc}`);
+      img.src = imageSrc;
+
+      img.onload = () => {
+        const imgWidth = img.width;
+        const imgHeight = img.height;
+
+        let position: {
           x: number;
           y: number;
           width: number;
           height: number;
-        } | null> = new Array(sortedSprites.length).fill(null);
+        } | null = null;
 
-        loadedImages.forEach(({ img, index }) => {
-          const imgWidth = img.width;
-          const imgHeight = img.height;
+        for (const { x: adjustedX, y: adjustedY } of spiralPositions) {
+          if (canPlaceImage(adjustedX, adjustedY, imgWidth, imgHeight)) {
+            position = {
+              x: adjustedX,
+              y: adjustedY,
+              width: imgWidth,
+              height: imgHeight,
+            };
+            occupiedSpacesRef.current.push({
+              x: adjustedX,
+              y: adjustedY,
+              width: imgWidth,
+              height: imgHeight,
+            });
+            break;
+          }
+        }
 
-          for (const { x: adjustedX, y: adjustedY } of spiralPositions) {
-            if (canPlaceImage(adjustedX, adjustedY, imgWidth, imgHeight)) {
-              spritePositions[index] = {
-                x: adjustedX,
-                y: adjustedY,
-                width: imgWidth,
-                height: imgHeight,
-              };
-              occupiedSpaces.push({
-                x: adjustedX,
-                y: adjustedY,
-                width: imgWidth,
-                height: imgHeight,
-              });
-              break;
-            }
+        if (position) {
+          imagesRef.current.push({
+            img,
+            x: position.x,
+            y: position.y,
+            width: position.width,
+            height: position.height,
+            opacity: 0,
+            fadeStartTime: Date.now(),
+          });
+
+          if (process.env.DEV === 'true') {
+            console.log(`Image ${index + 1} loaded and placed at:`, position);
           }
 
-          if (!spritePositions[index]) {
-            console.warn(
-              `Could not place image ${index + 1}: ${sortedSprites[index]}. Size: ${imgWidth}x${imgHeight}`
-            );
-          }
-        });
-
-        spritePositions.forEach((pos, idx) => {
-          if (pos) {
-            const img = loadedImages.find(item => item.index === idx)?.img;
-            if (img) {
-              imagesRef.current.push({
-                img,
-                x: pos.x,
-                y: pos.y,
-                width: pos.width,
-                height: pos.height,
-                opacity: 0,
-                fadeStartTime: Date.now(),
-              });
-            }
-          }
-        });
-
-        if (process.env.DEV === 'true') {
-          console.log(
-            `Placed ${imagesRef.current.length} out of ${sortedSprites.length} images`
-          );
-          console.log(
-            'Image positions:',
-            imagesRef.current.map(img => ({ x: img.x, y: img.y }))
+          drawCanvas();
+        } else {
+          console.warn(
+            `Could not place image ${index + 1}: ${src}. Size: ${imgWidth}x${imgHeight}`
           );
         }
 
-        drawCanvas();
-      })
-      .catch(error => {
-        console.error('Error loading images:', error);
-        drawCanvas();
-      });
+        if (
+          index === sortedSprites.length - 1 &&
+          imagesRef.current.length < sortedSprites.length
+        ) {
+          setError(
+            `Loaded ${imagesRef.current.length} of ${sortedSprites.length} images. Some images failed to load.`
+          );
+        }
+      };
+
+      img.onerror = () => {
+        console.error(`Failed to load image ${index + 1}: ${imageSrc}`);
+        if (
+          index === sortedSprites.length - 1 &&
+          imagesRef.current.length === 0
+        ) {
+          setError('Failed to load all images. Please try again later.');
+        }
+      };
+    };
+
+    sortedSprites.forEach((src, index) => {
+      setTimeout(() => loadImage(src, index), index * 100);
+    });
 
     const resizeCanvas = () => {
       canvas.width = window.innerWidth;
@@ -432,14 +426,17 @@ function PixelCanvas({ className, grid, ...props }: PixelCanvasProps) {
   }, [grid, sprites]);
 
   return (
-    <canvas
-      ref={canvasRef}
-      className={twJoin(
-        'h-full w-full cursor-auto touch-pinch-zoom',
-        className
-      )}
-      {...props}
-    />
+    <>
+      {error && <div className="error">{error}</div>}
+      <canvas
+        ref={canvasRef}
+        className={twJoin(
+          'h-full w-full cursor-auto touch-pinch-zoom',
+          className
+        )}
+        {...props}
+      />
+    </>
   );
 }
 
