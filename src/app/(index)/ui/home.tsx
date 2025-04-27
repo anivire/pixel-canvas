@@ -2,7 +2,6 @@
 
 import { useState } from 'react';
 import { PixelCanvas } from '../components/pixel-canvas';
-import { useCanvasContext } from '../components/canvas-context';
 
 function HomePage() {
   const [gridSize] = useState<number>(32);
@@ -14,8 +13,6 @@ function HomePage() {
     first: '#252525',
     second: '#303030',
   });
-
-  const { cursor, camera } = useCanvasContext();
 
   return (
     <section className="flex h-screen w-screen flex-col">

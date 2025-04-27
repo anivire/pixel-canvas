@@ -3,7 +3,6 @@
 import { useEffect, useRef, useState, HTMLAttributes } from 'react';
 import { twJoin } from 'tailwind-merge';
 import { useSprites } from './use-sprites';
-import { useCanvasContext } from './canvas-context';
 
 type PixelCanvasProps = HTMLAttributes<HTMLCanvasElement> & {
   grid: {
@@ -47,8 +46,6 @@ function PixelCanvas({ className, grid, ...props }: PixelCanvasProps) {
   const rafRef = useRef<number | null>(null);
 
   const sprites = useSprites();
-
-  const { setCamera, setCursor, camera, cursor } = useCanvasContext();
 
   useEffect(() => {
     const canvas = canvasRef.current;
