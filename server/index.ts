@@ -31,11 +31,6 @@ Bun.serve({
         );
       }
     },
-    '/api/status': () => {
-      return new Response('Hello!', {
-        headers: { 'Access-Control-Allow-Origin': '*' },
-      });
-    },
   },
   fetch(req) {
     const url = new URL(req.url);

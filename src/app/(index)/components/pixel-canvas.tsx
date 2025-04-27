@@ -1,5 +1,9 @@
+/* eslint-disable react-hooks/exhaustive-deps */
+
 import { useEffect, useRef, useState, HTMLAttributes } from 'react';
 import { twJoin } from 'tailwind-merge';
+import { useSprites } from './use-sprites';
+import { useCanvasContext } from './canvas-context';
 
 type PixelCanvasProps = HTMLAttributes<HTMLCanvasElement> & {
   grid: {
@@ -15,47 +19,36 @@ type PixelCanvasProps = HTMLAttributes<HTMLCanvasElement> & {
   };
 };
 
+type CanvasImage = {
+  img: HTMLImageElement;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  opacity: number;
+  fadeStartTime: number;
+};
+
+const MAX_SCALE = 4;
+const GAP = 5;
+const MAX_WIDTH = 4000;
+const MAX_HEIGHT = 4000;
+const FADE_DURATION = 1000;
+
 function PixelCanvas({ className, grid, ...props }: PixelCanvasProps) {
+  const [scale, setScale] = useState(1);
+
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const cameraRef = useRef({ x: 0, y: 0 });
-  const isDraggingRef = useRef(false);
   const lastMousePosRef = useRef({ x: 0, y: 0 });
-  const imagesRef = useRef<
-    {
-      img: HTMLImageElement;
-      x: number;
-      y: number;
-      width: number;
-      height: number;
-    }[]
-  >([]);
-  const [imageSources, setImageSources] = useState<string[]>([]);
-  const [fetchError, setFetchError] = useState<string | null>(null);
-  const [scale, setScale] = useState(2);
-  const maxScale = 4;
+  const isDraggingRef = useRef(false);
+  const imagesRef = useRef<CanvasImage[]>([]);
   const scaleRef = useRef(scale);
   const rafRef = useRef<number | null>(null);
 
-  useEffect(() => {
-    fetch('http://localhost:8888/api/sprites')
-      .then(res => {
-        if (!res.ok) {
-          throw new Error(`HTTP error! Status: ${res.status}`);
-        }
-        return res.json();
-      })
-      .then(files => {
-        if (Array.isArray(files) && files.length > 0) {
-          setImageSources(files.sort((a, b) => a.localeCompare(b)));
-          setFetchError(null);
-        } else {
-          setImageSources([]);
-        }
-      })
-      .catch(err => {
-        setFetchError(`Failed to load sprites: ${err}`);
-      });
-  }, []);
+  const sprites = useSprites();
+
+  const { setCamera, setCursor, camera, cursor } = useCanvasContext();
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -64,13 +57,6 @@ function PixelCanvas({ className, grid, ...props }: PixelCanvasProps) {
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    ctx.imageSmoothingEnabled = false;
-
-    const gap = 5;
-    const startX = 0;
-    const startY = 0;
-    const maxWidth = 2000;
-
     imagesRef.current = [];
     const occupiedSpaces: {
       x: number;
@@ -78,7 +64,6 @@ function PixelCanvas({ className, grid, ...props }: PixelCanvasProps) {
       width: number;
       height: number;
     }[] = [];
-    let maxY = startY;
 
     const canPlaceImage = (
       x: number,
@@ -86,72 +71,153 @@ function PixelCanvas({ className, grid, ...props }: PixelCanvasProps) {
       width: number,
       height: number
     ) => {
-      if (x + width > startX + maxWidth) return false;
+      if (
+        x + width > MAX_WIDTH / 2 ||
+        y + height > MAX_HEIGHT / 2 ||
+        x < -MAX_WIDTH / 2 ||
+        y < -MAX_HEIGHT / 2
+      ) {
+        return false;
+      }
       return !occupiedSpaces.some(
         space =>
-          x < space.x + space.width &&
-          x + width > space.x &&
-          y < space.y + space.height &&
-          y + height > space.y
+          x < space.x + space.width + GAP &&
+          x + width + GAP > space.x &&
+          y < space.y + space.height + GAP &&
+          y + height + GAP > space.y
       );
     };
 
-    imageSources.forEach((src, index) => {
-      const img = new Image();
-      img.src = src.startsWith('http') ? src : `http://localhost:8888${src}`;
-      img.onload = () => {
-        const imgWidth = img.width;
-        const imgHeight = img.height;
+    const spiralPositions = (() => {
+      const positions: { x: number; y: number }[] = [];
+      let x = 0,
+        y = 0;
+      let dx = 0,
+        dy = -1;
+      const maxI = (Math.max(MAX_WIDTH, MAX_HEIGHT) / GAP) ** 2;
 
-        let placed = false;
-        let x = startX;
-        let y = startY;
+      for (let i = 0; i < maxI; i++) {
+        const scaledX = x * GAP;
+        const scaledY = y * GAP;
+        if (
+          scaledX >= -MAX_WIDTH / 2 &&
+          scaledX <= MAX_WIDTH / 2 &&
+          scaledY >= -MAX_HEIGHT / 2 &&
+          scaledY <= MAX_HEIGHT / 2
+        ) {
+          positions.push({ x: scaledX, y: scaledY });
+        }
+        if (x === y || (x < 0 && x === -y) || (x > 0 && x === 1 - y)) {
+          const temp = dx;
+          dx = -dy;
+          dy = temp;
+        }
+        x += dx;
+        y += dy;
+      }
 
-        for (let tryY = startY; tryY <= maxY && !placed; tryY += gap) {
-          for (
-            let tryX = startX;
-            tryX <= startX + maxWidth - imgWidth && !placed;
-            tryX += gap
-          ) {
-            if (canPlaceImage(tryX, tryY, imgWidth, imgHeight)) {
-              x = tryX;
-              y = tryY;
-              placed = true;
+      positions.sort((a, b) => {
+        const distA = a.x ** 2 + a.y ** 2;
+        const distB = b.x ** 2 + b.y ** 2;
+        if (distA === distB) {
+          if (a.x === b.x) return a.y - b.y;
+          return a.x - b.x;
+        }
+        return distA - distB;
+      });
+      return positions;
+    })();
+
+    const sortedSprites = [...sprites].sort();
+
+    Promise.all(
+      sortedSprites.map(
+        (src, index) =>
+          new Promise<{ img: HTMLImageElement; index: number }>(
+            (resolve, reject) => {
+              const img = new Image();
+              img.src = src.startsWith('http')
+                ? src
+                : `${process.env.API_URL}${src}`;
+              img.onload = () => resolve({ img, index });
+              img.onerror = () => {
+                console.error(`Failed to load image ${index + 1}: ${src}`);
+                reject(new Error(`Failed to load image ${src}`));
+              };
+            }
+          )
+      )
+    )
+      .then(loadedImages => {
+        const spritePositions: Array<{
+          x: number;
+          y: number;
+          width: number;
+          height: number;
+        } | null> = new Array(sortedSprites.length).fill(null);
+
+        loadedImages.forEach(({ img, index }) => {
+          const imgWidth = img.width;
+          const imgHeight = img.height;
+
+          for (const { x: adjustedX, y: adjustedY } of spiralPositions) {
+            if (canPlaceImage(adjustedX, adjustedY, imgWidth, imgHeight)) {
+              spritePositions[index] = {
+                x: adjustedX,
+                y: adjustedY,
+                width: imgWidth,
+                height: imgHeight,
+              };
+              occupiedSpaces.push({
+                x: adjustedX,
+                y: adjustedY,
+                width: imgWidth,
+                height: imgHeight,
+              });
+              break;
             }
           }
-        }
 
-        if (!placed) {
-          y = maxY + gap;
-          x = startX;
-        }
-
-        imagesRef.current.push({
-          img,
-          x,
-          y,
-          width: imgWidth,
-          height: imgHeight,
+          if (!spritePositions[index]) {
+            console.warn(
+              `Could not place image ${index + 1}: ${sortedSprites[index]}. Size: ${imgWidth}x${imgHeight}`
+            );
+          }
         });
 
-        occupiedSpaces.push({
-          x,
-          y,
-          width: imgWidth,
-          height: imgHeight,
+        spritePositions.forEach((pos, idx) => {
+          if (pos) {
+            const img = loadedImages.find(item => item.index === idx)?.img;
+            if (img) {
+              imagesRef.current.push({
+                img,
+                x: pos.x,
+                y: pos.y,
+                width: pos.width,
+                height: pos.height,
+                opacity: 0,
+                fadeStartTime: Date.now(),
+              });
+            }
+          }
         });
 
-        maxY = Math.max(maxY, y + imgHeight);
+        if (process.env.DEV === 'true') {
+          console.log(
+            `Placed ${imagesRef.current.length} out of ${sortedSprites.length} images`
+          );
+          console.log(
+            'Image positions:',
+            imagesRef.current.map(img => ({ x: img.x, y: img.y }))
+          );
+        }
 
         drawCanvas();
-      };
-
-      img.onerror = () => {
-        console.error(
-          `Failed to load image ${index + 1}/${imageSources.length}: ${src}`
-        );
-      };
-    });
+      })
+      .catch(error => {
+        console.error('Error loading images:', error);
+        drawCanvas();
+      });
 
     const resizeCanvas = () => {
       canvas.width = window.innerWidth;
@@ -170,14 +236,15 @@ function PixelCanvas({ className, grid, ...props }: PixelCanvasProps) {
         ctx.clearRect(0, 0, width, height);
 
         const gridSize = grid.size;
-        const startX = Math.floor(camera.x / gridSize) * gridSize;
-        const startY = Math.floor(camera.y / gridSize) * gridSize;
+        const START_X = Math.floor(camera.x / gridSize) * gridSize;
+        const START_Y = Math.floor(camera.y / gridSize) * gridSize;
         const endX = camera.x + width / scaleRef.current;
         const endY = camera.y + height / scaleRef.current;
 
         ctx.imageSmoothingEnabled = false;
-        for (let x = startX; x < endX; x += gridSize) {
-          for (let y = startY; y < endY; y += gridSize) {
+
+        for (let x = START_X; x < endX; x += gridSize) {
+          for (let y = START_Y; y < endY; y += gridSize) {
             const isDark =
               (Math.floor(x / gridSize) + Math.floor(y / gridSize)) % 2 === 0;
             ctx.fillStyle = isDark ? grid.color.first : grid.color.second;
@@ -190,20 +257,30 @@ function PixelCanvas({ className, grid, ...props }: PixelCanvasProps) {
           }
         }
 
-        imagesRef.current.forEach(
-          ({ img, x, y, width: imgWidth, height: imgHeight }) => {
-            const renderX = Math.round((x - camera.x) * scaleRef.current);
-            const renderY = Math.round((y - camera.y) * scaleRef.current);
-            const renderWidth = Math.round(imgWidth * scaleRef.current);
-            const renderHeight = Math.round(imgHeight * scaleRef.current);
-            ctx.drawImage(img, renderX, renderY, renderWidth, renderHeight);
+        imagesRef.current.forEach(image => {
+          const elapsed = Date.now() - image.fadeStartTime;
+          image.opacity = Math.min(elapsed / FADE_DURATION, 1);
 
-            if (grid.borders.isEnabled) {
-              ctx.strokeStyle = grid.borders.color;
-              ctx.strokeRect(renderX, renderY, renderWidth, renderHeight);
-            }
+          const renderX = Math.round((image.x - camera.x) * scaleRef.current);
+          const renderY = Math.round((image.y - camera.y) * scaleRef.current);
+          const renderWidth = Math.round(image.width * scaleRef.current);
+          const renderHeight = Math.round(image.height * scaleRef.current);
+
+          ctx.globalAlpha = image.opacity;
+          ctx.drawImage(image.img, renderX, renderY, renderWidth, renderHeight);
+
+          if (grid.borders.isEnabled && image.opacity === 1) {
+            ctx.globalAlpha = 1;
+            ctx.strokeStyle = grid.borders.color;
+            ctx.strokeRect(renderX, renderY, renderWidth, renderHeight);
           }
-        );
+        });
+
+        ctx.globalAlpha = 1;
+
+        if (imagesRef.current.some(image => image.opacity < 1)) {
+          drawCanvas();
+        }
       });
     };
 
@@ -234,8 +311,9 @@ function PixelCanvas({ className, grid, ...props }: PixelCanvasProps) {
       e.preventDefault();
       const zoomSpeed = 1;
       const oldScale = scaleRef.current;
-      const newScale = Math.round(
-        Math.min(Math.max(1, oldScale - e.deltaY * 0.01 * zoomSpeed), maxScale)
+      const newScale = Math.min(
+        Math.max(1, oldScale - e.deltaY * 0.01 * zoomSpeed),
+        MAX_SCALE
       );
 
       const rect = canvas.getBoundingClientRect();
@@ -259,13 +337,12 @@ function PixelCanvas({ className, grid, ...props }: PixelCanvasProps) {
       drawCanvas();
     };
 
-    cameraRef.current = {
-      x: -canvas.width / (2 * scale) + maxWidth / 2,
-      y: -canvas.height / (2 * scale) + maxY / 2,
-    };
-
     resizeCanvas();
-    drawCanvas();
+
+    cameraRef.current = {
+      x: -canvas.width / (2 * scale),
+      y: -canvas.height / (2 * scale),
+    };
 
     window.addEventListener('resize', resizeCanvas);
     canvas.addEventListener('mousedown', handleMouseDown);
@@ -282,12 +359,11 @@ function PixelCanvas({ className, grid, ...props }: PixelCanvasProps) {
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
       if (scaleTimeout) clearTimeout(scaleTimeout);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [grid, imageSources]);
+  }, [grid, sprites]);
 
-  if (fetchError) {
-    return <div className="text-red-500">{fetchError}</div>;
-  }
+  useEffect(() => {
+    console.log(lastMousePosRef);
+  }, [lastMousePosRef]);
 
   return (
     <canvas
