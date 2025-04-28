@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { PixelCanvas } from '../components/pixel-canvas';
 import { useCanvasContext } from '../components/canvas-context';
 import { useSprites } from '../components/use-sprites';
@@ -21,6 +21,17 @@ function HomePage() {
   });
 
   const sprites = useSprites();
+
+  const preferences = useMemo(() => {
+    return {
+      size: gridSize,
+      color: {
+        first: colors.first,
+        second: colors.second,
+      },
+      borders: { ...borders },
+    };
+  }, [gridSize, colors, borders]);
 
   return (
     <section className="flex h-screen w-screen flex-col">
@@ -57,17 +68,7 @@ function HomePage() {
           </span>
         </p>
       </div>
-      <PixelCanvas
-        sprites={sprites}
-        preferences={{
-          size: gridSize,
-          color: {
-            first: colors.first,
-            second: colors.second,
-          },
-          borders: borders,
-        }}
-      />
+      <PixelCanvas sprites={sprites} preferences={preferences} />
     </section>
   );
 }

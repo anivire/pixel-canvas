@@ -71,11 +71,12 @@ class CanvasManager {
       this.canvasSprites = [];
       this.occupiedSpaces = [];
       this.loadSprites();
+      console.log('sprites changed');
     }
 
     if (preferencesChanged) {
       this.props = preferences;
-      this.drawCanvas();
+      console.log('preferences changed');
     }
 
     if (fadeDurationChanged) {
@@ -83,8 +84,10 @@ class CanvasManager {
       this.canvasSprites.forEach(image => {
         image.fadeStartTime = Date.now();
       });
-      this.drawCanvas();
+      console.log('fadeDuration changed');
     }
+
+    this.drawCanvas();
   }
 
   private loadSprites() {
@@ -247,9 +250,10 @@ class CanvasManager {
         y: this.cameraPosition.y - dy / this.scale,
       };
       this.updateCameraPosition(newCameraPosition);
-      this.updateMousePosition({ x: e.clientX, y: e.clientY });
       this.drawCanvas();
     }
+
+    this.updateMousePosition({ x: e.clientX, y: e.clientY });
   };
 
   private handleTouchStart = (e: TouchEvent) => {
