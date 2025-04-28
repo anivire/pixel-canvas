@@ -1,18 +1,23 @@
-'use client';
+import ClientLayout from './layout.client';
+import { Inter } from 'next/font/google';
 
-import { CanvasContextProvider } from './(index)/components/canvas-context';
-import './globals.css';
+export const inter = Inter({
+  display: 'block',
+  subsets: ['cyrillic', 'latin'],
+  preload: true,
+  weight: 'variable',
+});
 
 export default function RootLayout({
   children,
-}: Readonly<{
+}: {
   children: React.ReactNode;
-}>) {
+}) {
   return (
     <html lang="en">
-      <CanvasContextProvider>
-        <body>{children}</body>
-      </CanvasContextProvider>
+      <ClientLayout>
+        <body style={inter.style}>{children}</body>
+      </ClientLayout>
     </html>
   );
 }

@@ -2,11 +2,15 @@
 
 import { useState } from 'react';
 import { PixelCanvas } from '../components/pixel-canvas';
+import { useCanvasContext } from '../components/canvas-context';
+import { useSprites } from '../components/use-sprites';
+import { twJoin } from 'tailwind-merge';
 
 function HomePage() {
+  const { camera, cursor } = useCanvasContext();
   const [gridSize] = useState<number>(32);
   const [borders] = useState<{ isEnabled: boolean; color: string }>({
-    isEnabled: false,
+    isEnabled: true,
     color: '#3957ff',
   });
   const [colors] = useState<{ first: string; second: string }>({
@@ -14,18 +18,26 @@ function HomePage() {
     second: '#303030',
   });
 
+  const sprites = useSprites();
+
   return (
     <section className="flex h-screen w-screen flex-col">
-      {/* <div className="bg-black-03 absolute bottom-3 left-3 flex flex-col rounded-md px-3 py-1 text-xs tabular-nums">
+      <div
+        className={twJoin(
+          'absolute bottom-3 left-3 flex flex-col',
+          'bg-black-03/80 rounded-md px-3 py-2 text-xs tabular-nums backdrop-blur-md'
+        )}
+      >
         <p>
-          cur: {cursor.x}:{cursor.y}
+          cur: {cursor.x.toFixed(0)} {cursor.y.toFixed(0)}
         </p>
         <p>
-          cam: {camera.x}:{camera.y}
+          cam: {camera.x.toFixed(0)} {camera.y.toFixed(0)}
         </p>
-      </div> */}
+      </div>
       <PixelCanvas
-        grid={{
+        sprites={sprites}
+        preferences={{
           size: gridSize,
           color: {
             first: colors.first,

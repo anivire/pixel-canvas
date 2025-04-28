@@ -7,11 +7,7 @@ import {
   useMemo,
 } from 'react';
 import { createContext } from 'react';
-
-export type Position = {
-  x: number;
-  y: number;
-};
+import { Position } from './canvas/models/position';
 
 type CanvasContextProps = {
   camera: Position;
