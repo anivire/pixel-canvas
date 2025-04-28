@@ -18,10 +18,8 @@ export default function ClientLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
-      <CanvasContextProvider>
-        <div className={twJoin(inter.className)}>{children}</div>
-      </CanvasContextProvider>
-    </html>
+    <CanvasContextProvider>
+      <div className={twJoin(inter.className)}>{children}</div>
+    </CanvasContextProvider>
   );
 }
