@@ -32,6 +32,7 @@ class CanvasManager {
   private fadeDuration: number = 500;
   private setCamera: (position: Position) => void;
   private setCursor: (position: Position) => void;
+  private manualRedraw: boolean = false;
 
   constructor(
     canvas: HTMLCanvasElement,
@@ -67,24 +68,24 @@ class CanvasManager {
     const fadeDurationChanged = this.fadeDuration !== fadeDuration;
 
     if (spritesChanged) {
+      this.manualRedraw = true;
       this.sprites = sprites;
       this.canvasSprites = [];
       this.occupiedSpaces = [];
       this.loadSprites();
-      console.log('sprites changed');
     }
 
     if (preferencesChanged) {
+      this.manualRedraw = true;
       this.props = preferences;
-      console.log('preferences changed');
     }
 
     if (fadeDurationChanged) {
+      this.manualRedraw = true;
       this.fadeDuration = fadeDuration;
       this.canvasSprites.forEach(image => {
         image.fadeStartTime = Date.now();
       });
-      console.log('fadeDuration changed');
     }
 
     this.drawCanvas();
@@ -397,8 +398,9 @@ class CanvasManager {
         this.cameraPosition.y !== this.lastCameraPosition?.y ||
         this.scale !== this.lastScale;
 
-      if (!needsRedraw) return;
+      if (!needsRedraw && !this.manualRedraw) return;
 
+      this.manualRedraw = false;
       this.lastCameraPosition = { ...this.cameraPosition };
       this.lastScale = this.scale;
 
