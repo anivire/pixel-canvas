@@ -29,7 +29,7 @@ function PixelCanvas({
 }: PixelCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const canvasManagerRef = useRef<CanvasManager | null>(null);
-  const { setCamera, setCursor } = useCanvasContext();
+  const { setCamera, setCursor, setError } = useCanvasContext();
 
   useEffect(() => {
     if (canvasRef.current) {
@@ -39,7 +39,8 @@ function PixelCanvas({
         preferences,
         fadeDuration,
         setCamera,
-        setCursor
+        setCursor,
+        setError
       );
 
       return () => {

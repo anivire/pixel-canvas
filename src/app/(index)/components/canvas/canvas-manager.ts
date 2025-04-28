@@ -30,9 +30,11 @@ class CanvasManager {
   private raf: number | null = null;
   private props: CanvasProperties;
   private fadeDuration: number = 500;
+  private manualRedraw: boolean = false;
+
   private setCamera: (position: Position) => void;
   private setCursor: (position: Position) => void;
-  private manualRedraw: boolean = false;
+  private setError: (text: string) => void;
 
   constructor(
     canvas: HTMLCanvasElement,
@@ -40,7 +42,8 @@ class CanvasManager {
     preferences: CanvasProperties,
     fadeDuration: number = 500,
     setCamera: (position: Position) => void,
-    setCursor: (position: Position) => void
+    setCursor: (position: Position) => void,
+    setError: (text: string) => void
   ) {
     this.canvas = canvas;
     this.sprites = sprites;
@@ -49,6 +52,7 @@ class CanvasManager {
     this.ctx = canvas.getContext('2d');
     this.setCamera = setCamera;
     this.setCursor = setCursor;
+    this.setError = setError;
 
     this.initEventListeners();
     this.resizeCanvas();
@@ -159,58 +163,64 @@ class CanvasManager {
   })();
 
   private loadImage = (src: string, index: number) => {
-    const img = new Image();
-    const imageSrc = src.startsWith('http')
-      ? `${src}?v=${Date.now()}`
-      : `${process.env.API_URL || ''}${src}?v=${Date.now()}`;
-    img.src = imageSrc;
+    try {
+      const img = new Image();
+      const imageSrc = src.startsWith('http')
+        ? `${src}?v=${Date.now()}`
+        : `${process.env.API_URL || ''}${src}?v=${Date.now()}`;
+      img.src = imageSrc;
 
-    img.onload = () => {
-      const imgWidth = img.width;
-      const imgHeight = img.height;
+      img.onload = () => {
+        const imgWidth = img.width;
+        const imgHeight = img.height;
 
-      let position: {
-        x: number;
-        y: number;
-        width: number;
-        height: number;
-      } | null = null;
+        let position: {
+          x: number;
+          y: number;
+          width: number;
+          height: number;
+        } | null = null;
 
-      for (const { x: adjustedX, y: adjustedY } of this.spiralPositions) {
-        if (this.canPlaceImage(adjustedX, adjustedY, imgWidth, imgHeight)) {
-          position = {
-            x: adjustedX,
-            y: adjustedY,
-            width: imgWidth,
-            height: imgHeight,
-          };
-          this.occupiedSpaces.push({
-            x: adjustedX,
-            y: adjustedY,
-            width: imgWidth,
-            height: imgHeight,
-          });
-          break;
+        for (const { x: adjustedX, y: adjustedY } of this.spiralPositions) {
+          if (this.canPlaceImage(adjustedX, adjustedY, imgWidth, imgHeight)) {
+            position = {
+              x: adjustedX,
+              y: adjustedY,
+              width: imgWidth,
+              height: imgHeight,
+            };
+            this.occupiedSpaces.push({
+              x: adjustedX,
+              y: adjustedY,
+              width: imgWidth,
+              height: imgHeight,
+            });
+            break;
+          }
         }
-      }
 
-      if (position) {
-        this.canvasSprites.push({
-          img,
-          x: position.x,
-          y: position.y,
-          width: position.width,
-          height: position.height,
-          opacity: 0,
-          fadeStartTime: Date.now(),
-        });
-        this.drawCanvas();
-      }
-    };
+        if (position) {
+          this.canvasSprites.push({
+            img,
+            x: position.x,
+            y: position.y,
+            width: position.width,
+            height: position.height,
+            opacity: 0,
+            fadeStartTime: Date.now(),
+          });
+          this.drawCanvas();
+        }
+      };
 
-    img.onerror = () => {
-      console.error(`Failed to load image ${index + 1}: ${imageSrc}`);
-    };
+      img.onerror = () => {
+        console.error(`Failed to load image ${index + 1}: ${imageSrc}`);
+        this.setError(`Failed to load image ${index + 1}: ${imageSrc}`);
+      };
+    } catch (e) {
+      console.error(e);
+      this.setError(JSON.stringify(e));
+    }
   };
 
   private updateCameraPosition(newPosition: Position) {

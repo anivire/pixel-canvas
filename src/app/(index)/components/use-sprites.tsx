@@ -1,7 +1,11 @@
+/* eslint-disable react-hooks/exhaustive-deps */
+
 import { useEffect, useState } from 'react';
+import { useCanvasContext } from './canvas-context';
 
 function useSprites(): string[] {
   const [sprites, setSprites] = useState<string[]>([]);
+  const { setError } = useCanvasContext();
 
   useEffect(() => {
     async function fetchSprites() {
@@ -14,10 +18,16 @@ function useSprites(): string[] {
             setSprites(res.sort((a, b) => a.localeCompare(b)));
           } else {
             setSprites([]);
+            setError(
+              'Unable to load sprites or sprites array is empty, try again later'
+            );
           }
         }
       } catch (e) {
         console.error(e);
+        setError(
+          'Unable to load sprites or sprites array is empty, try again later'
+        );
       }
     }
 
