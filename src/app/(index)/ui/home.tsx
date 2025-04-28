@@ -46,13 +46,13 @@ function HomePage() {
             onClick={() => setIsWelcomeToastShowed(false)}
             className={twJoin(
               'flex flex-col gap-1',
-              'rounded-md bg-blue-400/10 px-3 py-2 text-xs tabular-nums backdrop-blur-md',
+              'rounded-md bg-blue-900/80 px-3 py-2 text-xs tabular-nums backdrop-blur-md',
               'cursor-pointer transition-transform duration-200 ease-in-out hover:scale-[103%]'
             )}
           >
             <p>
               pixel-canvas:{' '}
-              <span className="text-blue-400">
+              <span className="text-blue-300">
                 use mouse to navigate. Drag canvas by pressing LMB or MMB,
                 scroll to zoom. Click on me to close.
               </span>
@@ -64,11 +64,11 @@ function HomePage() {
           <div
             className={twJoin(
               'flex flex-col gap-1',
-              'bg-red-01/10 rounded-md px-3 py-2 text-xs tabular-nums backdrop-blur-md'
+              'rounded-md bg-red-900/80 px-3 py-2 text-xs tabular-nums backdrop-blur-md'
             )}
           >
             <p>
-              error: <span className="text-red-01">{error}</span>
+              error: <span className="text-red-300">{error}</span>
             </p>
           </div>
         )}
