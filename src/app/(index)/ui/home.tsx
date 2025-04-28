@@ -19,6 +19,7 @@ function HomePage() {
     first: '#252525',
     second: '#303030',
   });
+  const [welcomeToastShowed, setIsWelcomeToastShowed] = useState<boolean>(true);
 
   const sprites = useSprites();
 
@@ -40,6 +41,25 @@ function HomePage() {
           'absolute bottom-3 left-3 flex max-w-36 flex-col gap-2'
         )}
       >
+        {welcomeToastShowed && (
+          <div
+            onClick={() => setIsWelcomeToastShowed(false)}
+            className={twJoin(
+              'flex flex-col gap-1',
+              'rounded-md bg-blue-400/10 px-3 py-2 text-xs tabular-nums backdrop-blur-md',
+              'cursor-pointer transition-transform duration-200 ease-in-out hover:scale-[103%]'
+            )}
+          >
+            <p>
+              pixel-canvas:{' '}
+              <span className="text-blue-400">
+                use mouse to navigate. Drag canvas by pressing LMB or MMB,
+                scroll to zoom. Click on me to close.
+              </span>
+            </p>
+          </div>
+        )}
+
         {error && (
           <div
             className={twJoin(
