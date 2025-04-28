@@ -9,10 +9,12 @@ import { twJoin } from 'tailwind-merge';
 function HomePage() {
   const { camera, cursor } = useCanvasContext();
   const [gridSize] = useState<number>(32);
-  const [borders] = useState<{ isEnabled: boolean; color: string }>({
-    isEnabled: true,
-    color: '#3957ff',
-  });
+  const [borders, setBorders] = useState<{ isEnabled: boolean; color: string }>(
+    {
+      isEnabled: true,
+      color: '#3957ff',
+    }
+  );
   const [colors] = useState<{ first: string; second: string }>({
     first: '#252525',
     second: '#303030',
@@ -24,15 +26,35 @@ function HomePage() {
     <section className="flex h-screen w-screen flex-col">
       <div
         className={twJoin(
-          'absolute bottom-3 left-3 flex flex-col',
+          'absolute bottom-3 left-3 flex flex-col gap-1',
           'bg-black-03/80 rounded-md px-3 py-2 text-xs tabular-nums backdrop-blur-md'
         )}
       >
         <p>
-          cur: {cursor.x.toFixed(0)} {cursor.y.toFixed(0)}
+          border:{' '}
+          <button
+            onClick={() =>
+              setBorders(prev => ({
+                ...prev,
+                isEnabled: !prev.isEnabled,
+              }))
+            }
+            className="text-gray-01 bg-gray-01/20 cursor-pointer rounded-md px-2"
+          >
+            {borders.isEnabled ? 'true' : 'false'}
+          </button>
         </p>
         <p>
-          cam: {camera.x.toFixed(0)} {camera.y.toFixed(0)}
+          cur:{' '}
+          <span className="text-gray-01">
+            {cursor.x.toFixed(0)} {cursor.y.toFixed(0)}
+          </span>
+        </p>
+        <p>
+          cam:{' '}
+          <span className="text-gray-01">
+            {camera.x.toFixed(0)} {camera.y.toFixed(0)}
+          </span>
         </p>
       </div>
       <PixelCanvas

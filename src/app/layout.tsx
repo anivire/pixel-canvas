@@ -1,5 +1,6 @@
 import ClientLayout from './layout.client';
 import { Inter } from 'next/font/google';
+import { twJoin } from 'tailwind-merge';
 
 export const inter = Inter({
   display: 'block',
@@ -16,7 +17,9 @@ export default function RootLayout({
   return (
     <html lang="en">
       <ClientLayout>
-        <body style={inter.style}>{children}</body>
+        <body>
+          <div className={twJoin(inter.className)}>{children}</div>
+        </body>
       </ClientLayout>
     </html>
   );

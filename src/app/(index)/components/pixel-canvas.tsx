@@ -58,7 +58,7 @@ function PixelCanvas({
         fadeDuration
       );
     }
-  }, [sprites, preferences, fadeDuration]);
+  }, [sprites, preferences, fadeDuration, preferences.borders.isEnabled]);
 
   return (
     <canvas
