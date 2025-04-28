@@ -1,7 +1,16 @@
 'use client';
 
 import { CanvasContextProvider } from './(index)/components/canvas-context';
+import { Inter } from 'next/font/google';
+import { twJoin } from 'tailwind-merge';
 import './globals.css';
+
+export const inter = Inter({
+  display: 'block',
+  subsets: ['cyrillic', 'latin'],
+  preload: true,
+  weight: 'variable',
+});
 
 export default function ClientLayout({
   children,
@@ -11,7 +20,7 @@ export default function ClientLayout({
   return (
     <html lang="en">
       <CanvasContextProvider>
-        <body>{children}</body>
+        <div className={twJoin(inter.className)}>{children}</div>
       </CanvasContextProvider>
     </html>
   );
