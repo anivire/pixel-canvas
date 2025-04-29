@@ -1,7 +1,7 @@
 /* eslint-disable react-hooks/exhaustive-deps */
 import { twJoin } from 'tailwind-merge';
 import { useEffect, useRef, HTMLAttributes } from 'react';
-import { CanvasManager } from './canvas/canvas-manager';
+import { CanvasManager } from './canvas-manager';
 import { useCanvasContext } from './canvas-context';
 
 type PixelCanvasProps = HTMLAttributes<HTMLCanvasElement> & {

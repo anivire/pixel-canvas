@@ -572,10 +572,7 @@ class CanvasManager {
         const renderWidth = Math.round(image.width * this.scale);
         const renderHeight = Math.round(image.height * this.scale);
 
-        // this.ctx.globalAlpha = 1;
-        // // this.focusedSprite && image !== this.focusedSprite
-        // //   ? image.opacity * 0.3
-        // //   : image.opacity;
+        this.ctx.globalAlpha = image.opacity;
 
         this.ctx.drawImage(
           image.img,
@@ -591,8 +588,6 @@ class CanvasManager {
           this.ctx.strokeRect(renderX, renderY, renderWidth, renderHeight);
         }
       });
-
-      this.ctx.globalAlpha = 1;
 
       if (
         this.canvasSprites.some(image => image.opacity < 1) ||

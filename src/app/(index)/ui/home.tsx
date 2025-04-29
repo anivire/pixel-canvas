@@ -24,16 +24,22 @@ function HomePage() {
             onClick={() => setIsWelcomeToastShowed(false)}
             className={twJoin(
               'flex flex-col gap-1',
-              'rounded-md bg-blue-900/80 px-3 py-2 text-xs tabular-nums backdrop-blur-md',
-              'cursor-pointer transition-transform duration-200 ease-in-out hover:scale-[103%]'
+              'bg-black-03/80 rounded-md px-3 py-2 text-xs tabular-nums',
+              'cursor-pointer backdrop-blur-md'
             )}
           >
             <p>
               pixel-canvas:{' '}
-              <span className="text-blue-300">
-                use mouse to navigate. Drag canvas by holding MMB, focus on
-                sprite by clicking on LMB, scroll to zoom. Click on this popup
-                to close.
+              <span className="text-gray-01">
+                use mouse to navigate. Drag canvas by holding{' '}
+                <span className="text-gray-01 bg-gray-01/20 cursor-pointer rounded-md px-1.5">
+                  MMB
+                </span>
+                , focus on sprite by clicking on{' '}
+                <span className="text-gray-01 bg-gray-01/20 cursor-pointer rounded-md px-1.5">
+                  LMB
+                </span>
+                , scroll to zoom. Click on this popup to close.
               </span>
             </p>
           </div>
@@ -70,7 +76,7 @@ function HomePage() {
                   },
                 }))
               }
-              className="text-gray-01 bg-gray-01/20 cursor-pointer rounded-md px-2"
+              className="text-gray-01 bg-gray-01/20 cursor-pointer rounded-md px-1.5"
             >
               {preferences.borders.isEnabled ? 'enabled' : 'disabled'}
             </button>

@@ -7,8 +7,8 @@ import {
   useMemo,
 } from 'react';
 import { createContext } from 'react';
-import { Position } from './canvas/models/position';
-import { CanvasProperties } from './canvas/models/canvas-properties';
+import { Position } from './canvas-manager/models/position';
+import { CanvasProperties } from './canvas-manager/models/canvas-properties';
 
 type CanvasContextProps = {
   camera: Position;
@@ -33,7 +33,7 @@ export const CanvasContextProvider = ({
   const [preferences, setPreferences] = useState<CanvasProperties>({
     borders: {
       color: '#3957ff',
-      isEnabled: true,
+      isEnabled: false,
     },
     color: {
       first: '#252525',
