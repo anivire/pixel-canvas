@@ -589,6 +589,8 @@ class CanvasManager {
         }
       });
 
+      this.ctx.globalAlpha = 1;
+
       if (
         this.canvasSprites.some(image => image.opacity < 1) ||
         isCameraAnimated
