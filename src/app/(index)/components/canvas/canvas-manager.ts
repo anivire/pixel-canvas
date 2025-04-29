@@ -6,6 +6,10 @@ const MAX_SCALE = 4;
 const GAP = 5;
 const MAX_WIDTH = 4000;
 const MAX_HEIGHT = 4000;
+const FOCUS_ZOOM = 2;
+const LERP_DURATION = 1500;
+
+const isDevelopmentMode = process.env.DEV == 'true' ? true : false;
 
 class CanvasManager {
   public sprites: string[] = [];
@@ -31,6 +35,10 @@ class CanvasManager {
   private props: CanvasProperties;
   private fadeDuration: number = 500;
   private manualRedraw: boolean = false;
+  private focusedSprite: CanvasImage | null = null;
+  private targetCameraPosition: Position | null = null;
+  private targetScale: number = 1;
+  private lerpStartTime: number | null = null;
 
   private setCamera: (position: Position) => void;
   private setCursor: (position: Position) => void;
@@ -76,6 +84,9 @@ class CanvasManager {
       this.sprites = sprites;
       this.canvasSprites = [];
       this.occupiedSpaces = [];
+      this.focusedSprite = null;
+      this.targetCameraPosition = null;
+      this.lerpStartTime = null;
       this.loadSprites();
     }
 
@@ -166,8 +177,8 @@ class CanvasManager {
     try {
       const img = new Image();
       const imageSrc = src.startsWith('http')
-        ? `${src}?v=${Date.now()}`
-        : `${process.env.API_URL || ''}${src}?v=${Date.now()}`;
+        ? `${src}`
+        : `${process.env.API_URL || ''}${src}`;
       img.src = imageSrc;
 
       img.onload = () => {
@@ -241,15 +252,69 @@ class CanvasManager {
     this.updateCameraPosition(newPosition);
   };
 
+  private lerp(start: number, end: number, t: number): number {
+    return start + (end - start) * t;
+  }
+
+  private focusSprite(sprite: CanvasImage) {
+    this.focusedSprite = sprite;
+    this.targetCameraPosition = {
+      x: Math.round(
+        sprite.x + sprite.width / 2 - this.canvas.width / (2 * FOCUS_ZOOM)
+      ),
+      y: Math.round(
+        sprite.y + sprite.height / 2 - this.canvas.height / (2 * FOCUS_ZOOM)
+      ),
+    };
+    this.targetScale = FOCUS_ZOOM;
+    this.lerpStartTime = Date.now();
+    this.drawCanvas();
+  }
+
   private handleMouseDown = (e: MouseEvent) => {
-    this.isDragging = true;
-    this.updateMousePosition({ x: e.clientX, y: e.clientY });
-    if (this.canvas) this.canvas.style.cursor = 'grab';
+    if (e.button === 1) {
+      e.preventDefault();
+    }
+
+    if (e.button === 1) {
+      this.isDragging = true;
+      this.updateMousePosition({ x: e.clientX, y: e.clientY });
+      if (this.canvas) this.canvas.style.cursor = 'grab';
+      this.manualRedraw = true;
+      this.focusedSprite = null;
+      this.targetCameraPosition = null;
+      this.targetScale = 1;
+      this.lerpStartTime = Date.now();
+      this.drawCanvas();
+      return;
+    }
+
+    if (e.button === 0) {
+      const rect = this.canvas.getBoundingClientRect();
+      const clickX =
+        (e.clientX - rect.left) / this.scale + this.cameraPosition.x;
+      const clickY =
+        (e.clientY - rect.top) / this.scale + this.cameraPosition.y;
+
+      const clickedSprite = this.canvasSprites.find(
+        sprite =>
+          clickX >= sprite.x &&
+          clickX <= sprite.x + sprite.width &&
+          clickY >= sprite.y &&
+          clickY <= sprite.y + sprite.height
+      );
+
+      if (clickedSprite) {
+        this.focusSprite(clickedSprite);
+      }
+    }
   };
 
-  private handleMouseUp = () => {
-    this.isDragging = false;
-    if (this.canvas) this.canvas.style.cursor = 'auto';
+  private handleMouseUp = (e: MouseEvent) => {
+    if (e.button === 1) {
+      this.isDragging = false;
+      if (this.canvas) this.canvas.style.cursor = 'auto';
+    }
   };
 
   private handleMouseMove = (e: MouseEvent) => {
@@ -261,6 +326,10 @@ class CanvasManager {
         y: this.cameraPosition.y - dy / this.scale,
       };
       this.updateCameraPosition(newCameraPosition);
+      this.focusedSprite = null;
+      this.targetCameraPosition = null;
+      this.targetScale = 1;
+      this.lerpStartTime = Date.now();
       this.drawCanvas();
     }
 
@@ -300,6 +369,10 @@ class CanvasManager {
       };
       this.updateCameraPosition(newCameraPosition);
       this.updateMousePosition({ x: touch.clientX, y: touch.clientY });
+      this.focusedSprite = null;
+      this.targetCameraPosition = null;
+      this.targetScale = 1;
+      this.lerpStartTime = Date.now();
       this.drawCanvas();
     } else if (e.touches.length === 2) {
       const touch1 = e.touches[0];
@@ -331,6 +404,10 @@ class CanvasManager {
         this.updateCameraPosition(newCameraPosition);
         this.scale = newScale;
         this.lastTouchDistance = currentDistance;
+        this.focusedSprite = null;
+        this.targetCameraPosition = null;
+        this.targetScale = 1;
+        this.lerpStartTime = Date.now();
         this.drawCanvas();
       }
     }
@@ -358,6 +435,10 @@ class CanvasManager {
     };
     this.updateCameraPosition(newCameraPosition);
     this.scale = newScale;
+    this.focusedSprite = null;
+    this.targetCameraPosition = null;
+    this.targetScale = 1;
+    this.lerpStartTime = Date.now();
 
     if (this.scaleTimeout) clearTimeout(this.scaleTimeout);
     this.scaleTimeout = setTimeout(() => {
@@ -402,27 +483,65 @@ class CanvasManager {
       this.raf = null;
       const { width, height } = this.canvas;
 
+      let isCameraAnimated = false;
+      if (this.lerpStartTime !== null && this.targetCameraPosition) {
+        const elapsed = Date.now() - this.lerpStartTime;
+        const t = Math.min(elapsed / LERP_DURATION, 1);
+
+        this.cameraPosition.x = this.lerp(
+          this.cameraPosition.x,
+          this.targetCameraPosition.x,
+          t
+        );
+        this.cameraPosition.y = this.lerp(
+          this.cameraPosition.y,
+          this.targetCameraPosition.y,
+          t
+        );
+        this.scale = this.lerp(this.scale, this.targetScale, t);
+
+        if (t < 1) {
+          isCameraAnimated = true;
+        } else {
+          this.lerpStartTime = null;
+          this.cameraPosition.x = Math.round(this.cameraPosition.x);
+          this.cameraPosition.y = Math.round(this.cameraPosition.y);
+        }
+        this.setCamera(this.cameraPosition);
+      }
+
       const needsRedraw =
         this.canvasSprites.some(image => image.opacity < 1) ||
         this.cameraPosition.x !== this.lastCameraPosition?.x ||
         this.cameraPosition.y !== this.lastCameraPosition?.y ||
-        this.scale !== this.lastScale;
+        this.scale !== this.lastScale ||
+        this.focusedSprite !== null ||
+        isCameraAnimated;
 
       if (!needsRedraw && !this.manualRedraw) return;
+
+      if (isDevelopmentMode) {
+        console.info(
+          `[${new Date().toLocaleTimeString()}]`,
+          'pixel-canvas is redrawed'
+        );
+      }
 
       this.manualRedraw = false;
       this.lastCameraPosition = { ...this.cameraPosition };
       this.lastScale = this.scale;
 
+      this.ctx.save();
       this.ctx.clearRect(0, 0, width, height);
+
+      this.ctx.scale(this.scale, this.scale);
+      this.ctx.translate(-this.cameraPosition.x, -this.cameraPosition.y);
 
       const gridSize = this.props.size;
       const START_X = Math.floor(this.cameraPosition.x / gridSize) * gridSize;
       const START_Y = Math.floor(this.cameraPosition.y / gridSize) * gridSize;
       const endX = this.cameraPosition.x + width / this.scale;
       const endY = this.cameraPosition.y + height / this.scale;
-
-      this.ctx.imageSmoothingEnabled = false;
 
       for (let x = START_X; x < endX; x += gridSize) {
         for (let y = START_Y; y < endY; y += gridSize) {
@@ -431,14 +550,12 @@ class CanvasManager {
           this.ctx.fillStyle = isDark
             ? this.props.color.first
             : this.props.color.second;
-
-          const renderX = Math.round((x - this.cameraPosition.x) * this.scale);
-          const renderY = Math.round((y - this.cameraPosition.y) * this.scale);
-          const renderSize = Math.round(gridSize * this.scale);
-          const adjustedSize = renderSize + (renderSize % 2 === 0 ? 0 : 1);
-          this.ctx.fillRect(renderX, renderY, adjustedSize, adjustedSize);
+          this.ctx.fillRect(x, y, gridSize, gridSize);
         }
       }
+
+      this.ctx.restore();
+      this.ctx.imageSmoothingEnabled = false;
 
       this.canvasSprites.forEach(image => {
         if (!this.ctx) return;
@@ -455,7 +572,11 @@ class CanvasManager {
         const renderWidth = Math.round(image.width * this.scale);
         const renderHeight = Math.round(image.height * this.scale);
 
-        this.ctx.globalAlpha = image.opacity;
+        // this.ctx.globalAlpha = 1;
+        // // this.focusedSprite && image !== this.focusedSprite
+        // //   ? image.opacity * 0.3
+        // //   : image.opacity;
+
         this.ctx.drawImage(
           image.img,
           renderX,
@@ -473,8 +594,15 @@ class CanvasManager {
 
       this.ctx.globalAlpha = 1;
 
-      if (this.canvasSprites.some(image => image.opacity < 1)) {
+      if (
+        this.canvasSprites.some(image => image.opacity < 1) ||
+        isCameraAnimated
+      ) {
         this.drawCanvas();
+        this.updateCameraPosition({
+          x: this.cameraPosition.x,
+          y: this.cameraPosition.y,
+        });
       }
     });
   };

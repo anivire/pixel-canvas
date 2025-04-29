@@ -1,38 +1,16 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { PixelCanvas } from '../components/pixel-canvas';
 import { useCanvasContext } from '../components/canvas-context';
 import { useSprites } from '../components/use-sprites';
 import { twJoin } from 'tailwind-merge';
 
 function HomePage() {
-  const { camera, cursor, error } = useCanvasContext();
-  const [gridSize] = useState<number>(32);
-  const [borders, setBorders] = useState<{ isEnabled: boolean; color: string }>(
-    {
-      isEnabled: true,
-      color: '#3957ff',
-    }
-  );
-  const [colors] = useState<{ first: string; second: string }>({
-    first: '#252525',
-    second: '#303030',
-  });
+  const { camera, cursor, error, preferences, setPreferences } =
+    useCanvasContext();
   const [welcomeToastShowed, setIsWelcomeToastShowed] = useState<boolean>(true);
-
   const sprites = useSprites();
-
-  const preferences = useMemo(() => {
-    return {
-      size: gridSize,
-      color: {
-        first: colors.first,
-        second: colors.second,
-      },
-      borders: { ...borders },
-    };
-  }, [gridSize, colors, borders]);
 
   return (
     <section className="flex h-screen w-screen flex-col">
@@ -53,8 +31,9 @@ function HomePage() {
             <p>
               pixel-canvas:{' '}
               <span className="text-blue-300">
-                use mouse to navigate. Drag canvas by pressing LMB or MMB,
-                scroll to zoom. Click on me to close.
+                use mouse to navigate. Drag canvas by holding MMB, focus on
+                sprite by clicking on LMB, scroll to zoom. Click on this popup
+                to close.
               </span>
             </p>
           </div>
@@ -83,14 +62,17 @@ function HomePage() {
             border{' '}
             <button
               onClick={() =>
-                setBorders(prev => ({
+                setPreferences(prev => ({
                   ...prev,
-                  isEnabled: !prev.isEnabled,
+                  borders: {
+                    ...prev.borders,
+                    isEnabled: !prev.borders.isEnabled,
+                  },
                 }))
               }
               className="text-gray-01 bg-gray-01/20 cursor-pointer rounded-md px-2"
             >
-              {borders.isEnabled ? 'enabled' : 'disabled'}
+              {preferences.borders.isEnabled ? 'enabled' : 'disabled'}
             </button>
           </p>
           <p>
