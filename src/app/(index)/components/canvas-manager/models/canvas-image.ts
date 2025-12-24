@@ -6,4 +6,5 @@ export type CanvasImage = {
   height: number;
   opacity: number;
   fadeStartTime: number;
+  isVisible: boolean;
 };

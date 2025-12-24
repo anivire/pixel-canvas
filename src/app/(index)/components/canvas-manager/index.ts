@@ -192,17 +192,17 @@ class CanvasManager {
           height: number;
         } | null = null;
 
-        for (const { x: adjustedX, y: adjustedY } of this.spiralPositions) {
-          if (this.canPlaceImage(adjustedX, adjustedY, imgWidth, imgHeight)) {
+        for (const lodash of this.spiralPositions) {
+          if (this.canPlaceImage(lodash.x, lodash.y, imgWidth, imgHeight)) {
             position = {
-              x: adjustedX,
-              y: adjustedY,
+              x: lodash.x,
+              y: lodash.y,
               width: imgWidth,
               height: imgHeight,
             };
             this.occupiedSpaces.push({
-              x: adjustedX,
-              y: adjustedY,
+              x: lodash.x,
+              y: lodash.y,
               width: imgWidth,
               height: imgHeight,
             });
@@ -218,7 +218,8 @@ class CanvasManager {
             width: position.width,
             height: position.height,
             opacity: 0,
-            fadeStartTime: Date.now(),
+            fadeStartTime: 0,
+            isVisible: false,
           });
           this.drawCanvas();
         }
@@ -511,7 +512,9 @@ class CanvasManager {
       }
 
       const needsRedraw =
-        this.canvasSprites.some(image => image.opacity < 1) ||
+        this.canvasSprites.some(
+          image => image.opacity < 1 || image.opacity > 0
+        ) ||
         this.cameraPosition.x !== this.lastCameraPosition?.x ||
         this.cameraPosition.y !== this.lastCameraPosition?.y ||
         this.scale !== this.lastScale ||
@@ -557,11 +560,23 @@ class CanvasManager {
       this.ctx.restore();
       this.ctx.imageSmoothingEnabled = false;
 
+      // Viewport
+      this.ctx.save();
+      this.ctx.globalAlpha = 1;
+      this.ctx.fillStyle = 'blue';
+
+      const VIEWPORT_SCALE = 1;
+      const rectWidth = this.canvas.width / VIEWPORT_SCALE;
+      const rectHeight = this.canvas.height / VIEWPORT_SCALE;
+
+      const squareX = (this.canvas.width - rectWidth) / 2;
+      const squareY = (this.canvas.height - rectHeight) / 2;
+
+      // this.ctx.fillRect(squareX, squareY, rectWidth, rectHeight);
+      this.ctx.restore();
+
       this.canvasSprites.forEach(image => {
         if (!this.ctx) return;
-
-        const elapsed = Date.now() - image.fadeStartTime;
-        image.opacity = Math.min(elapsed / this.fadeDuration, 1);
 
         const renderX = Math.round(
           (image.x - this.cameraPosition.x) * this.scale
@@ -572,27 +587,53 @@ class CanvasManager {
         const renderWidth = Math.round(image.width * this.scale);
         const renderHeight = Math.round(image.height * this.scale);
 
-        this.ctx.globalAlpha = image.opacity;
+        const isInside =
+          renderX + renderWidth >= squareX &&
+          renderX <= squareX + rectWidth &&
+          renderY + renderHeight >= squareY &&
+          renderY <= squareY + rectHeight;
 
-        this.ctx.drawImage(
-          image.img,
-          renderX,
-          renderY,
-          renderWidth,
-          renderHeight
-        );
+        if (isInside) {
+          if (!image.isVisible) {
+            image.isVisible = true;
+            image.fadeStartTime = Date.now();
+          }
+          const elapsed = Date.now() - image.fadeStartTime;
+          image.opacity = Math.min(elapsed / this.fadeDuration, 1);
+        } else {
+          if (image.isVisible) {
+            image.isVisible = false;
+            image.fadeStartTime = Date.now();
+          }
+          const elapsed = Date.now() - image.fadeStartTime;
+          image.opacity = Math.max(1 - elapsed / this.fadeDuration, 0);
+        }
 
-        if (this.props.borders.isEnabled) {
-          this.ctx.globalAlpha = 1;
-          this.ctx.strokeStyle = this.props.borders.color;
-          this.ctx.strokeRect(renderX, renderY, renderWidth, renderHeight);
+        if (image.opacity > 0) {
+          this.ctx.globalAlpha = image.opacity;
+
+          this.ctx.drawImage(
+            image.img,
+            renderX,
+            renderY,
+            renderWidth,
+            renderHeight
+          );
+
+          if (this.props.borders.isEnabled) {
+            this.ctx.globalAlpha = 1;
+            this.ctx.strokeStyle = this.props.borders.color;
+            this.ctx.strokeRect(renderX, renderY, renderWidth, renderHeight);
+          }
         }
       });
 
       this.ctx.globalAlpha = 1;
 
       if (
-        this.canvasSprites.some(image => image.opacity < 1) ||
+        this.canvasSprites.some(
+          image => image.opacity < 1 || image.opacity > 0
+        ) ||
         isCameraAnimated
       ) {
         this.drawCanvas();
